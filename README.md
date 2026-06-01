@@ -4,12 +4,24 @@
 
 **Atomize the sound.** — Local-first audio **stem separation** for Apple Silicon.
 
+**🇬🇧 English**  ·  [🇮🇹 Italiano](README.it.md)
+
+![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-111?logo=apple&logoColor=white)
+![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
+![MLX](https://img.shields.io/badge/accel-MLX%20%2F%20Metal-FF6A00)
+![UI](https://img.shields.io/badge/UI-PySide6-41CD52?logo=qt&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-00E5FF)
+
 Split any song into stems (vocals, drums, bass, …) with the best open-source
 models, GPU-accelerated on Apple Silicon via **MLX/Metal**. Download from a URL
 or a local file, auto-detect **BPM** and **key**, and export files ready for
 Apple **MainStage's Playback** plugin.
 
 <sub>No cloud. No CUDA. Your audio never leaves your Mac.</sub>
+
+<br>
+
+<img src="assets/atomizer-ui.png" alt="Atomizer UI" width="720">
 
 </div>
 
