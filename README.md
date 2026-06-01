@@ -53,15 +53,34 @@ Apple **MainStage's Playback** plugin.
 
 > **Requirements:** Apple Silicon Mac (M1/M2/M3/M4), macOS 13+, [Homebrew](https://brew.sh).
 
+### Option A — with git
+
 ```bash
-git clone <your-repo-url> Atomizer
+git clone https://github.com/MeStakes/Atomizer.git
 cd Atomizer
-./setup.sh                       # installs ffmpeg + Python deps + downloads models
+./setup.sh
 source .venv/bin/activate
-python -m atomizer.main          # launch the app
+python -m atomizer.main
 ```
 
-That's it. `setup.sh` does everything:
+### Option B — without git (download the ZIP)
+
+1. Open **https://github.com/MeStakes/Atomizer** → green **Code** button → **Download ZIP**
+   (or use the [direct link](https://github.com/MeStakes/Atomizer/archive/refs/heads/main.zip)).
+2. Double-click the downloaded `Atomizer-main.zip` to unzip it (e.g. in *Downloads*).
+3. Open the **Terminal** app and run:
+
+```bash
+cd ~/Downloads/Atomizer-main      # the unzipped folder
+bash setup.sh
+source .venv/bin/activate
+python -m atomizer.main
+```
+
+> Tip: if Homebrew isn't installed yet, paste this in Terminal first:
+> `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
+
+Either way, `setup.sh` does everything:
 
 1. installs **ffmpeg** (Homebrew),
 2. creates a Python **3.12 virtualenv** and installs all dependencies,

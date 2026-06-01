@@ -55,15 +55,34 @@ un file locale, rileva **BPM** e **tonalità**, ed esporta file pronti per il pl
 
 > **Requisiti:** Mac Apple Silicon (M1/M2/M3/M4), macOS 13+, [Homebrew](https://brew.sh).
 
+### Opzione A — con git
+
 ```bash
-git clone git@github.com:MeStakes/Atomizer.git
+git clone https://github.com/MeStakes/Atomizer.git
 cd Atomizer
-./setup.sh                       # installa ffmpeg + dipendenze + scarica i modelli
+./setup.sh
 source .venv/bin/activate
-python -m atomizer.main          # avvia l'app
+python -m atomizer.main
 ```
 
-Fatto. `setup.sh` fa tutto:
+### Opzione B — senza git (scarica lo ZIP)
+
+1. Apri **https://github.com/MeStakes/Atomizer** → pulsante verde **Code** → **Download ZIP**
+   (oppure usa il [link diretto](https://github.com/MeStakes/Atomizer/archive/refs/heads/main.zip)).
+2. Fai doppio click sul file `Atomizer-main.zip` scaricato per estrarlo (es. in *Download*).
+3. Apri l'app **Terminale** ed esegui:
+
+```bash
+cd ~/Downloads/Atomizer-main      # la cartella estratta
+bash setup.sh
+source .venv/bin/activate
+python -m atomizer.main
+```
+
+> Suggerimento: se non hai ancora Homebrew, incolla prima questo nel Terminale:
+> `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
+
+In entrambi i casi, `setup.sh` fa tutto:
 
 1. installa **ffmpeg** (Homebrew),
 2. crea un **virtualenv Python 3.12** e installa tutte le dipendenze,
