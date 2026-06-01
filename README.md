@@ -1,187 +1,184 @@
-# Atomizer
+<div align="center">
 
-> Atomize the sound. — Local-first audio **stem separation** for Apple Silicon.
+# ⚡ ATOMIZER
 
-Atomizer is a desktop app (PySide6) that splits a song into stems
-(vocals, drums, bass, …) using the best open-source models, accelerated on
-Apple Silicon via **MLX/Metal** — no CUDA, no cloud. It downloads audio from a
-URL (YouTube, …) or a local file, detects **BPM** and **musical key**, and
-exports files ready to drop into Apple **MainStage's Playback** plugin.
+**Atomize the sound.** — Local-first audio **stem separation** for Apple Silicon.
 
-- **Separation:** [`mlx-audio-separator`](https://github.com/ssmall256/mlx-audio-separator) (BS-/MelBand-Roformer, HTDemucs, MDX, VR)
-- **Download:** [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)
-- **BPM/Key:** online lookup (GetSongBPM/Tunebat) → local [`librosa`](https://librosa.org) fallback (Krumhansl-Schmuckler)
-- **Export:** AIFF/WAV, 24-bit/44.1 kHz, per-song folder + `info.json`
+Split any song into stems (vocals, drums, bass, …) with the best open-source
+models, GPU-accelerated on Apple Silicon via **MLX/Metal**. Download from a URL
+or a local file, auto-detect **BPM** and **key**, and export files ready for
+Apple **MainStage's Playback** plugin.
 
-**Audio never leaves your Mac.** Only the optional BPM/key lookup uses the network.
+<sub>No cloud. No CUDA. Your audio never leaves your Mac.</sub>
+
+</div>
 
 ---
 
-## Requirements
+## ✨ Features
 
-- **Apple Silicon** Mac (M1/M2/M3/M4) — MLX requires it.
-- **macOS 13+** (built and tested on macOS 26 / M1 Pro).
-- **Python 3.10–3.12** (the app uses 3.12).
-- **Homebrew** (for `ffmpeg`).
+- 🎚️ **Top-tier separation** — BS-Roformer & MelBand-Roformer (SDX23 winners),
+  HTDemucs FT (4-stem) and HTDemucs 6s (+guitar/piano). 163 models in total.
+- 🍎 **Apple Silicon native** — runs on the GPU via MLX/Metal. No PyTorch/ONNX at
+  inference, no CUDA.
+- 🔗 **URL or file** — paste a YouTube (etc.) link or drag-and-drop a local file.
+- 🥁 **Pick your stems** — export only the stems you check.
+- 🎼 **BPM + key detection** — online lookup first (optional API key), automatic
+  local fallback (librosa / Krumhansl-Schmuckler). Always shows source + confidence.
+- 📋 **Job queue** — start one separation and queue more while it runs; cancel or
+  remove jobs anytime.
+- 📊 **Real progress + ETA** — true per-chunk percentage and time-remaining during
+  inference.
+- 🎧 **Preview & export** — audition stems, then export **AIFF/WAV 24-bit/44.1 kHz**
+  into a tidy per-song folder with an `info.json` sidecar.
+- 🌃 **Neon cyber UI** — dark, futuristic PySide6 interface.
+- 🔒 **Private** — separation is fully local/offline; only the optional BPM/key
+  lookup touches the network.
 
 ---
 
-## Install (Apple Silicon, step-by-step)
+## 🚀 Quick start
 
-### 1. ffmpeg (via Homebrew)
-
-```bash
-brew install ffmpeg
-```
-
-### 2. Python 3.12
+> **Requirements:** Apple Silicon Mac (M1/M2/M3/M4), macOS 13+, [Homebrew](https://brew.sh).
 
 ```bash
-brew install python@3.12        # if you don't already have it
-```
-
-### 3. One-shot setup
-
-From the project folder:
-
-```bash
-./setup.sh
-```
-
-This creates a `.venv`, installs everything from `requirements.txt`, and copies
-`.env.example` → `.env`.
-
-<details>
-<summary>Manual setup (equivalent)</summary>
-
-```bash
-python3.12 -m venv .venv
+git clone <your-repo-url> Atomizer
+cd Atomizer
+./setup.sh                       # installs ffmpeg + Python deps + downloads models
 source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-cp .env.example .env
+python -m atomizer.main          # launch the app
 ```
-</details>
 
-### 4. Run
+That's it. `setup.sh` does everything:
+
+1. installs **ffmpeg** (Homebrew),
+2. creates a Python **3.12 virtualenv** and installs all dependencies,
+3. creates `.env` from the template,
+4. **pre-downloads the recommended model checkpoints** so the app is ready to run
+   offline with no first-use wait.
+
+> The model download is a few GB the **first time only** — checkpoints are cached
+> under `~/Library/Caches/Atomizer/models` and reused forever after (they survive
+> reboots). To skip it and let models download lazily on first use instead:
+> `./setup.sh --no-models`.
+
+Pre-download (or top up) models anytime:
 
 ```bash
-source .venv/bin/activate
-python -m atomizer.main
+python -m atomizer.bootstrap          # all recommended models
+python -m atomizer.bootstrap --list   # show what would be downloaded
 ```
-
-> **First run** downloads model checkpoints (100s MB – several GB depending on
-> the model). Progress is shown in the app's status log. Checkpoints are cached
-> under `~/Library/Caches/Atomizer/models`.
 
 ---
 
-## BPM / Key online lookup (optional)
-
-Atomizer tries an online provider first (using the track title + artist from
-yt-dlp), then falls back to local analysis. **No key = it just uses local
-analysis** — everything still works.
-
-Edit `.env`:
-
-```ini
-# GetSongBPM (free, requires an attribution backlink on your site):
-#   https://getsongbpm.com/api
-GETSONGBPM_API_KEY=your_key_here
-
-# or Tunebat via RapidAPI:
-TUNEBAT_API_KEY=your_rapidapi_key
-TUNEBAT_API_HOST=tunebat-api.p.rapidapi.com
-
-# Which to try first:
-BPM_KEY_PROVIDER=getsongbpm
-```
-
-The UI always shows whether a value came from **online** or **local**, with a
-confidence estimate.
-
----
-
-## Using the app
+## 🎛️ Using Atomizer
 
 1. **Paste a URL** or **drop / choose** a local audio file.
 2. Pick a **separation model** (default = BS-Roformer, best vocals). Toggle
-   *Show all models* for the full 163-model catalogue, or *Ensemble* for max
-   quality.
-3. Check the **stems** you want exported (only checked ones are written).
+   *Show all models* for the full catalogue, or *Ensemble* for maximum quality
+   (runs two models and averages them).
+3. Check the **stems** to export — only checked stems are written.
 4. Choose **format** (AIFF default / WAV), **bit depth** (24/16), and the
    **output folder** (default `~/Music/Atomizer`).
-5. Hit **SEPARATE**. The job is added to the **Queue** and starts immediately if
-   nothing else is running.
-6. **Queue more while one runs** — change the form and press SEPARATE again;
-   jobs run one at a time. Remove queued jobs or **Cancel** the running one
-   (cancel takes effect at the next inference chunk).
-7. The **progress bar shows a real percentage and ETA** during separation; BPM/key
-   fill in automatically.
+5. Press **SEPARATE** — the job enters the **Queue** and starts immediately if idle.
+6. **Queue more while one runs**: change the form and press SEPARATE again. Jobs run
+   one at a time. **Cancel** the running job (stops at the next chunk) or **✕** remove
+   a queued one.
+7. Watch the **real % + ETA** during separation; BPM/key fill in automatically with
+   their source (online/local) and confidence.
 8. **Preview** each stem and **Open output folder** when done.
 
 ### Output layout
 
 ```
 ~/Music/Atomizer/
-└── Artist - Title (128 BPM - A minor)/
-    ├── 01_Vocals.aif
-    ├── 02_Drums.aif
-    ├── 03_Bass.aif
-    ├── 04_Other.aif
-    └── info.json        # BPM, key, source, model, date
+└── Negrita - Magnolia (170 BPM - F# major)/
+    ├── 01_Vocals.aif        # AIFF, stereo, 24-bit, 44.1 kHz
+    ├── 02_Instrumental.aif
+    └── info.json            # bpm, key, source, model, date
 ```
-
-For WAV exports, the detected tempo is also written into an `acid` chunk
-(read by many DAWs). For AIFF, tempo lives in `info.json` (the reliable channel),
-since MainStage-readable AIFF tempo embedding isn't standardized.
 
 ---
 
-## Recommended models
+## 🎹 Recommended models
 
 | Model | Stems | Notes |
 |-------|-------|-------|
-| **BS-Roformer** (default) | Vocals / Instrumental | SDX23 winner, ~12.9 dB SDR vocals. Highest quality, slowest. |
+| **BS-Roformer** *(default)* | Vocals / Instrumental | SDX23 winner, ~12.9 dB SDR vocals. Highest quality. |
 | **MelBand-Roformer** | Vocals / Instrumental | Excellent alternative. |
 | **HTDemucs FT** | Vocals / Drums / Bass / Other | Full 4-stem split. |
 | **HTDemucs 6s** | + Guitar / Piano | 6-stem split. |
+| *Ensemble* | Vocals / Instrumental | Runs BS + MelBand and averages — max quality, ~2× slower. |
 
-Speed is **not** a priority — Atomizer favours quality. Long jobs are normal.
+Atomizer favours **quality over speed** — long jobs are normal and expected.
 
 ---
 
-## Project structure
+## 🔑 Optional: online BPM / key lookup
+
+Atomizer detects BPM/key locally out of the box. For a faster/often-more-accurate
+online lookup, add a key to `.env`:
+
+```ini
+# GetSongBPM (free, requires an attribution backlink): https://getsongbpm.com/api
+GETSONGBPM_API_KEY=your_key_here
+
+# or Tunebat via RapidAPI:
+TUNEBAT_API_KEY=your_rapidapi_key
+TUNEBAT_API_HOST=tunebat-api.p.rapidapi.com
+
+BPM_KEY_PROVIDER=getsongbpm   # which to try first
+```
+
+No key → it simply uses local analysis. The UI always tells you which source a
+value came from.
+
+---
+
+## 🧱 Project structure
 
 ```
 atomizer/
 ├── config.py       # settings, .env, paths
-├── models.py       # typed dataclasses
+├── models.py       # typed dataclasses + ProgressEvent
 ├── downloader.py   # yt-dlp
-├── separator.py    # mlx-audio-separator wrapper + ensemble fallback
-├── analysis.py     # BPM/key online + local
-├── exporter.py     # AIFF/WAV + info.json + tempo metadata
+├── separator.py    # mlx-audio-separator wrapper, model catalogue, ensemble, live progress
+├── analysis.py     # BPM/key (online + local)
+├── exporter.py     # AIFF/WAV + info.json
 ├── pipeline.py     # end-to-end orchestration (UI-agnostic)
-├── ui/             # PySide6 neon UI
+├── bootstrap.py    # model pre-download
+├── ui/             # PySide6 neon UI + job queue
 └── main.py         # entrypoint
 ```
 
 ---
 
-## Troubleshooting
+## 🧪 Development
 
-- **`essentia` install fails on Apple Silicon** — it's optional. Atomizer uses
-  `librosa` for local analysis and never requires essentia.
-- **YouTube download fails** — update yt-dlp: `pip install -U yt-dlp`. Some
-  videos are region/bot restricted; try another URL or a local file.
-- **Model download is slow** — checkpoints are large and downloaded once, then
-  cached. Subsequent runs reuse them.
-- **No GPU acceleration** — ensure you're on Apple Silicon; MLX uses Metal
+```bash
+pip install -r requirements-dev.txt
+QT_QPA_PLATFORM=offscreen pytest -q       # run the test suite
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+- **`essentia` won't install on Apple Silicon** — it's optional; Atomizer uses
+  `librosa` and never requires it.
+- **YouTube download fails** — update yt-dlp (`pip install -U yt-dlp`); some videos
+  are region/bot-restricted — try another URL or a local file.
+- **First separation is slow** — the model checkpoint downloads once (run
+  `python -m atomizer.bootstrap` ahead of time to avoid the wait), then it's cached.
+- **No GPU acceleration** — make sure you're on Apple Silicon; MLX uses Metal
   automatically.
 
 ---
 
-## Notes
+## 📝 Notes
 
-- All separation runs locally and offline.
-- Built and verified on MacBook Pro 16" 2021 (M1 Pro, 16 GB), macOS 26.
+- Separation runs fully locally and offline.
+- Built and verified on a MacBook Pro 16" (M1 Pro, 16 GB), macOS 26.
+- Powered by [mlx-audio-separator](https://github.com/ssmall256/mlx-audio-separator),
+  [yt-dlp](https://github.com/yt-dlp/yt-dlp), [librosa](https://librosa.org), and
+  [PySide6](https://doc.qt.io/qtforpython/).

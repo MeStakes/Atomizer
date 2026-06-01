@@ -65,8 +65,17 @@ if [[ ! -f .env ]]; then
   echo "==> Created .env from .env.example (edit it to add an optional BPM/key API key)."
 fi
 
+# --- 7. Pre-download recommended models ------------------------------------
+# Pass --no-models to skip (models then download lazily on first use, with UI
+# progress). Default: fetch everything now so the app is ready offline.
+if [[ "${1:-}" != "--no-models" ]]; then
+  echo "==> Pre-downloading recommended models (several GB; first time only)…"
+  echo "    (skip with: ./setup.sh --no-models)"
+  python -m atomizer.bootstrap || echo "!! Model pre-download had issues; they will retry on first use."
+else
+  echo "==> Skipping model pre-download (--no-models). They'll download on first use."
+fi
+
 echo
 echo "==> Done. Run the app with:"
 echo "    source .venv/bin/activate && python -m atomizer.main"
-echo
-echo "    First run downloads model checkpoints (100s MB–GB) — progress shows in the UI."
