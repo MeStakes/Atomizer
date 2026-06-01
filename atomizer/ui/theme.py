@@ -1,26 +1,27 @@
-"""Neon cyber/sci-fi theme: palette constants + Qt stylesheet (QSS).
+"""Synthwave neon theme: palette constants + Qt stylesheet (QSS).
 
-Near-black backgrounds with electric-cyan / magenta-violet / aqua-green accents,
+Near-black indigo backgrounds with neon violet / hot-pink / deep-indigo accents,
 rounded corners, subtle borders, and glow on active elements.
 """
 
 from __future__ import annotations
 
 # --- Palette ---------------------------------------------------------------
-BG_DEEP = "#0A0E14"
-BG_PANEL = "#12161F"
-BG_RAISED = "#1A1F2B"
-BG_INPUT = "#0E131C"
-BORDER = "#243040"
-BORDER_HI = "#2E3C50"
+BG_DEEP = "#0B0712"
+BG_PANEL = "#15101E"
+BG_RAISED = "#1C1530"
+BG_INPUT = "#0F0A18"
+BORDER = "#2A2140"
+BORDER_HI = "#3A2D55"
 
-CYAN = "#00E5FF"
-VIOLET = "#B14EFF"
-AQUA = "#00FFC6"
+# Semantic neon accents (synthwave).
+PRIMARY = "#C04DFF"  # neon violet — primary accent
+ACCENT = "#FF4DD8"   # hot pink — secondary accent
+DEEP = "#6A2BFF"     # deep indigo
 DANGER = "#FF4E6A"
 
-TEXT = "#E6F0F5"
-TEXT_MUTED = "#7A8694"
+TEXT = "#F0E8F7"
+TEXT_MUTED = "#9A8FB0"
 
 # Font stack: geometric/tech sans, graceful fallback if Orbitron absent.
 LOGO_FONT = "'Orbitron', 'Space Grotesk', 'SF Pro Display', 'Helvetica Neue', sans-serif"
@@ -46,7 +47,7 @@ QWidget#Card {{
 }}
 
 QLabel#SectionTitle {{
-    color: {CYAN};
+    color: {PRIMARY};
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 2px;
@@ -70,11 +71,11 @@ QLineEdit, QComboBox, QPlainTextEdit, QSpinBox {{
     border: 1px solid {BORDER};
     border-radius: 10px;
     padding: 9px 12px;
-    selection-background-color: {VIOLET};
+    selection-background-color: {PRIMARY};
     selection-color: #ffffff;
 }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
-    border: 1px solid {CYAN};
+    border: 1px solid {PRIMARY};
 }}
 QLineEdit::placeholder {{
     color: {TEXT_MUTED};
@@ -88,14 +89,14 @@ QComboBox::down-arrow {{
     image: none;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
-    border-top: 6px solid {CYAN};
+    border-top: 6px solid {PRIMARY};
     margin-right: 10px;
 }}
 QComboBox QAbstractItemView {{
     background-color: {BG_RAISED};
     border: 1px solid {BORDER_HI};
     border-radius: 10px;
-    selection-background-color: {VIOLET};
+    selection-background-color: {PRIMARY};
     selection-color: #ffffff;
     padding: 4px;
 }}
@@ -107,8 +108,8 @@ QFrame#DropZone {{
     border-radius: 14px;
 }}
 QFrame#DropZone[dragActive="true"] {{
-    border: 1.5px dashed {CYAN};
-    background-color: #0c1a22;
+    border: 1.5px dashed {PRIMARY};
+    background-color: #1a0f2b;
 }}
 
 /* --- Buttons --- */
@@ -120,11 +121,11 @@ QPushButton {{
     font-weight: 600;
 }}
 QPushButton:hover {{
-    border: 1px solid {CYAN};
-    color: {CYAN};
+    border: 1px solid {PRIMARY};
+    color: {PRIMARY};
 }}
 QPushButton:pressed {{
-    background-color: #0c1a22;
+    background-color: #1a0f2b;
 }}
 QPushButton:disabled {{
     color: {TEXT_MUTED};
@@ -132,8 +133,8 @@ QPushButton:disabled {{
 }}
 
 QPushButton#Primary {{
-    background-color: {CYAN};
-    color: #04161a;
+    background-color: {PRIMARY};
+    color: #1a0524;
     border: none;
     border-radius: 12px;
     padding: 14px 22px;
@@ -142,7 +143,7 @@ QPushButton#Primary {{
     letter-spacing: 3px;
 }}
 QPushButton#Primary:hover {{
-    background-color: #4af1ff;
+    background-color: #D26BFF;
 }}
 QPushButton#Primary:disabled {{
     background-color: {BG_RAISED};
@@ -157,14 +158,14 @@ QPushButton#Ghost {{
 
 QPushButton#Play {{
     background-color: transparent;
-    border: 1px solid {VIOLET};
-    color: {VIOLET};
+    border: 1px solid {PRIMARY};
+    color: {PRIMARY};
     border-radius: 8px;
     padding: 4px 10px;
     font-weight: 700;
 }}
 QPushButton#Play:hover {{
-    background-color: rgba(177, 78, 255, 0.12);
+    background-color: rgba(192, 77, 255, 0.14);
 }}
 
 /* --- Checkboxes --- */
@@ -180,11 +181,11 @@ QCheckBox::indicator {{
     background-color: {BG_INPUT};
 }}
 QCheckBox::indicator:hover {{
-    border: 1px solid {CYAN};
+    border: 1px solid {PRIMARY};
 }}
 QCheckBox::indicator:checked {{
-    background-color: {CYAN};
-    border: 1px solid {CYAN};
+    background-color: {PRIMARY};
+    border: 1px solid {PRIMARY};
 }}
 
 /* --- Progress --- */
@@ -199,15 +200,15 @@ QProgressBar {{
 }}
 QProgressBar::chunk {{
     border-radius: 8px;
-    background-color: {CYAN};
+    background-color: {PRIMARY};
 }}
 
 /* --- Status log --- */
 QPlainTextEdit#Log {{
     font-family: {MONO_FONT};
     font-size: 12px;
-    color: #b9ffe9;
-    background-color: #080c12;
+    color: #E9C7FF;
+    background-color: #0A0613;
     border: 1px solid {BORDER};
     border-radius: 10px;
 }}
@@ -226,7 +227,7 @@ QLabel#MetricLabel {{
     text-transform: uppercase;
 }}
 QLabel#SourceBadge {{
-    color: {AQUA};
+    color: {ACCENT};
     font-size: 11px;
     font-weight: 600;
 }}

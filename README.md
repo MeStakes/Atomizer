@@ -43,6 +43,9 @@ Apple **MainStage's Playback** plugin.
   inference.
 - 🎧 **Preview & export** — audition stems, then export **AIFF/WAV 24-bit/44.1 kHz**
   into a tidy per-song folder with an `info.json` sidecar.
+- 🎯 **MainStage-ready metadata** — AIFF exports embed an Apple Loops `basc` chunk
+  (tempo + key) so MainStage can auto-detect them; WAV gets an `acid` tempo chunk;
+  `info.json` is always written too.
 - 🌃 **Neon cyber UI** — dark, futuristic PySide6 interface.
 - 🔒 **Private** — separation is fully local/offline; only the optional BPM/key
   lookup touches the network.

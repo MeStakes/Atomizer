@@ -38,7 +38,7 @@ _AUDIO_FILTER = "Audio (*.wav *.aif *.aiff *.flac *.mp3 *.m4a *.opus *.ogg);;All
 
 
 class LogoLabel(QWidget):
-    """Paints the 'ATOMIZER' wordmark with a cyan→violet gradient and glow."""
+    """Paints the 'ATOMIZER' wordmark with a violet→pink→indigo gradient and glow."""
 
     def __init__(self, text: str = "ATOMIZER", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -52,7 +52,7 @@ class LogoLabel(QWidget):
         self._font = font
         glow = QGraphicsDropShadowEffect(self)
         glow.setBlurRadius(28)
-        glow.setColor(QColor(theme.CYAN))
+        glow.setColor(QColor(theme.PRIMARY))
         glow.setOffset(0, 0)
         self.setGraphicsEffect(glow)
 
@@ -63,9 +63,9 @@ class LogoLabel(QWidget):
         p.setFont(self._font)
         rect = self.rect()
         grad = QLinearGradient(rect.left(), 0, rect.right(), 0)
-        grad.setColorAt(0.0, QColor(theme.CYAN))
-        grad.setColorAt(0.55, QColor(theme.AQUA))
-        grad.setColorAt(1.0, QColor(theme.VIOLET))
+        grad.setColorAt(0.0, QColor(theme.PRIMARY))
+        grad.setColorAt(0.55, QColor(theme.ACCENT))
+        grad.setColorAt(1.0, QColor(theme.DEEP))
         p.setPen(QPen(grad, 0))
         p.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._text)
         p.end()
@@ -151,7 +151,7 @@ class NeonProgressBar(QProgressBar):
         self.setValue(0)
 
         self._glow = QGraphicsDropShadowEffect(self)
-        self._glow.setColor(QColor(theme.CYAN))
+        self._glow.setColor(QColor(theme.PRIMARY))
         self._glow.setOffset(0, 0)
         self._glow.setBlurRadius(8)
         self.setGraphicsEffect(self._glow)
@@ -213,7 +213,7 @@ class MetricChip(QWidget):
             if confidence is not None:
                 badge += f"  ·  {confidence * 100:.0f}% conf"
         self._badge.setText(badge)
-        color = theme.AQUA if source == "online" else (theme.VIOLET if source == "local" else theme.TEXT_MUTED)
+        color = theme.ACCENT if source == "online" else (theme.PRIMARY if source == "local" else theme.TEXT_MUTED)
         self._badge.setStyleSheet(f"color: {color};")
 
 

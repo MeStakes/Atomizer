@@ -113,6 +113,98 @@ def _write_acid_chunk(wav_path: Path, bpm: float, n_frames: int, sample_rate: in
     wav_path.write_bytes(bytes(raw))
 
 
+# Note name (with sharp spelling) -> MIDI root in the 48..59 octave (C=48).
+_NOTE_TO_MIDI = {
+    "C": 48, "C#": 49, "D": 50, "D#": 51, "E": 52, "F": 53,
+    "F#": 54, "G": 55, "G#": 56, "A": 57, "A#": 58, "B": 59,
+}
+# Flat -> enharmonic sharp spelling (or natural where applicable).
+_FLAT_TO_SHARP = {
+    "Cb": "B", "Db": "C#", "Eb": "D#", "Fb": "E",
+    "Gb": "F#", "Ab": "G#", "Bb": "A#",
+}
+
+
+def _parse_key(key: Optional[str]) -> tuple[int, int]:
+    """Parse a key string like 'F# major' / 'A minor' / 'Bb' / 'Am'.
+
+    Returns ``(key_midi, scale)`` where key_midi is a MIDI root in 48..59 (or 0
+    if unknown) and scale is 1=minor, 2=major, 3=neither/unknown.
+    """
+    if not key:
+        return (0, 3)
+    s = key.strip()
+    if not s:
+        return (0, 3)
+
+    # Leading note letter A-G, optional accidental '#' or 'b'.
+    m = re.match(r"^([A-Ga-g])([#b]?)", s)
+    if not m:
+        return (0, 3)
+    letter = m.group(1).upper()
+    accidental = m.group(2)
+    note = letter + accidental
+    if accidental == "b":
+        note = _FLAT_TO_SHARP.get(letter + "b", letter)
+    key_midi = _NOTE_TO_MIDI.get(note, 0)
+
+    # Mode: minor if it mentions minor (and not major); else major.
+    low = s.lower()
+    is_minor = ("min" in low or re.search(r"\bm\b", low) is not None
+                or low.endswith("m")) and "maj" not in low
+    if is_minor:
+        scale = 1
+    else:
+        scale = 2
+    if key_midi == 0:
+        scale = 3
+    return (key_midi, scale)
+
+
+def _write_basc_chunk(
+    aiff_path: Path,
+    bpm: float,
+    key: Optional[str],
+    n_frames: int,
+    sample_rate: int,
+) -> None:
+    """Append a best-effort Apple Loops 'basc' chunk to an AIFF file.
+
+    Apple Loops carry tempo/key in a ``basc`` chunk so hosts such as MainStage
+    can auto-detect them. AIFF is big-endian and uses the ``FORM``/``AIFF``
+    container, so (unlike the WAV ``acid`` chunk) the chunk is written
+    big-endian and the FORM size is updated. Word-aligned per the AIFF spec.
+
+    Wrapped by the caller in try/except — failure must never break the export.
+    """
+    duration_sec = n_frames / float(sample_rate)
+    num_beats = max(1, int(round(duration_sec * bpm / 60.0)))
+    key_midi, scale = _parse_key(key)
+
+    # 84-byte payload (big-endian): loopable flag, numBeats, key root MIDI,
+    # scale type, time sig numerator/denominator, then 68 filler zero bytes.
+    payload = struct.pack(
+        ">IIHHHH",
+        1,          # loopable flag (always 1)
+        num_beats,  # number of beats
+        key_midi,   # MIDI root note (48..59) or 0 if unknown
+        scale,      # 1=minor, 2=major, 3=neither/unknown
+        4,          # time signature numerator
+        4,          # time signature denominator
+    ) + b"\x00" * 68
+    chunk = b"basc" + struct.pack(">I", len(payload)) + payload
+
+    raw = bytearray(aiff_path.read_bytes())
+    if raw[0:4] != b"FORM" or raw[8:12] != b"AIFF":
+        return  # not a FORM/AIFF file; skip silently
+    if len(raw) % 2 == 1:
+        raw.append(0)  # word-align before appending a new chunk
+    raw.extend(chunk)
+    # Update FORM chunk size (total file size - 8).
+    raw[4:8] = struct.pack(">I", len(raw) - 8)
+    aiff_path.write_bytes(bytes(raw))
+
+
 def _write_audio(
     data: np.ndarray,
     sr: int,
@@ -120,6 +212,7 @@ def _write_audio(
     fmt: ExportFormat,
     bit_depth: int,
     bpm: Optional[float],
+    key: Optional[str] = None,
 ) -> None:
     """Write ``data`` to ``out_path`` in the target format/bit depth."""
     # Ensure stereo, float in [-1, 1].
@@ -139,6 +232,12 @@ def _write_audio(
     if bpm and fmt is ExportFormat.WAV:
         try:
             _write_acid_chunk(out_path, bpm, n_frames=data.shape[0], sample_rate=sr)
+        except Exception:
+            pass  # best-effort only
+
+    if bpm and fmt is ExportFormat.AIFF:
+        try:
+            _write_basc_chunk(out_path, bpm, key, n_frames=data.shape[0], sample_rate=sr)
         except Exception:
             pass  # best-effort only
 
@@ -170,7 +269,8 @@ def export(
         data = _resample_if_needed(data, sr, settings.sample_rate)
         out_name = f"{i:02d}_{_sanitize(stem.name)}{fmt.extension}"
         out_path = folder / out_name
-        _write_audio(data, settings.sample_rate, out_path, fmt, settings.bit_depth, analysis.bpm)
+        _write_audio(data, settings.sample_rate, out_path, fmt, settings.bit_depth,
+                     analysis.bpm, analysis.key)
         files.append(ExportedStem(name=stem.name, path=out_path))
 
     # info.json (guaranteed metadata channel).

@@ -37,9 +37,9 @@ def _make_splash_pixmap() -> QPixmap:
     font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 8)
     p.setFont(font)
     grad = QLinearGradient(0, 0, w, 0)
-    grad.setColorAt(0.0, QColor(theme.CYAN))
-    grad.setColorAt(0.55, QColor(theme.AQUA))
-    grad.setColorAt(1.0, QColor(theme.VIOLET))
+    grad.setColorAt(0.0, QColor(theme.PRIMARY))
+    grad.setColorAt(0.55, QColor(theme.ACCENT))
+    grad.setColorAt(1.0, QColor(theme.DEEP))
     p.setPen(QPen(grad, 0))
     p.drawText(pm.rect().adjusted(0, -20, 0, -20), Qt.AlignmentFlag.AlignCenter, "ATOMIZER")
 

@@ -6,12 +6,13 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -41,8 +42,8 @@ except Exception:  # pragma: no cover
 
 _STATUS_COLOR = {
     QUEUED: theme.TEXT_MUTED,
-    RUNNING: theme.CYAN,
-    DONE: theme.AQUA,
+    RUNNING: theme.PRIMARY,
+    DONE: theme.ACCENT,
     FAILED: theme.DANGER,
     CANCELED: theme.TEXT_MUTED,
 }
@@ -142,9 +143,21 @@ class MainWindow(QWidget):
         col = QVBoxLayout()
         col.setSpacing(0)
         col.addWidget(LogoLabel("ATOMIZER"))
-        tag = QLabel(__tagline__ + "   —   stem separation for Apple Silicon")
-        tag.setObjectName("Muted")
-        col.addWidget(tag)
+
+        # Always-visible neon signature directly under the wordmark.
+        sig = QLabel(
+            f'by <span style="color:{theme.ACCENT};font-weight:700">&#9670; MeStakes</span>'
+            f'<span style="color:{theme.TEXT_MUTED}">  &middot;  '
+            f"{__tagline__} &mdash; stem separation for Apple Silicon</span>"
+        )
+        sig.setObjectName("Muted")
+        sig.setTextFormat(Qt.TextFormat.RichText)
+        sig_glow = QGraphicsDropShadowEffect(sig)
+        sig_glow.setBlurRadius(14)
+        sig_glow.setColor(QColor(theme.ACCENT))
+        sig_glow.setOffset(0, 0)
+        sig.setGraphicsEffect(sig_glow)
+        col.addWidget(sig)
         row.addLayout(col)
         row.addStretch(1)
         about = QPushButton("About")
