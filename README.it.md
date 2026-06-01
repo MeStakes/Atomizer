@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/icon-1024.png" alt="Atomizer" width="150">
+
 # ⚡ ATOMIZER
 
 **Atomizza il suono.** — **Separazione di stem audio** in locale per Apple Silicon.
@@ -91,7 +93,8 @@ In entrambi i casi, `setup.sh` fa tutto:
 2. crea un **virtualenv Python 3.12** e installa tutte le dipendenze,
 3. crea `.env` dal template,
 4. **pre-scarica i modelli consigliati**, così l'app è pronta a separare offline
-   senza attese al primo utilizzo.
+   senza attese al primo utilizzo,
+5. **installa il launcher `Atomizer.app`** — un'icona neon in Launchpad / Spotlight.
 
 > Il download dei modelli è di qualche GB **solo la prima volta** — i checkpoint
 > restano in cache in `~/Library/Caches/Atomizer/models` e vengono riusati per
@@ -105,18 +108,16 @@ python -m atomizer.bootstrap          # tutti i modelli consigliati
 python -m atomizer.bootstrap --list   # mostra cosa verrebbe scaricato
 ```
 
-### Crea un'icona dell'app (opzionale)
+### Launcher dell'app
 
-Preferisci avviarla da Launchpad / Spotlight invece che dal Terminale? Crea un
-launcher macOS:
+`setup.sh` installa già **Atomizer.app** (l'icona neon) in `/Applications` (o
+`~/Applications`), così la avvii da **Launchpad / Spotlight**. È un launcher
+leggero che usa il `.venv` di questo repo — lascia la cartella del progetto al
+suo posto. Per ricrearlo (es. dopo aver spostato il progetto):
 
 ```bash
 ./scripts/make_app.sh
 ```
-
-Installa **Atomizer.app** (icona neon) in `/Applications` (o `~/Applications`).
-È un launcher leggero che usa il `.venv` di questo repo — lascia la cartella del
-progetto al suo posto e rilancia lo script se la sposti.
 
 ---
 
