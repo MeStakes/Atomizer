@@ -1,0 +1,3 @@
+# Atomizer — development/test dependencies
+-r requirements.txt
+pytest

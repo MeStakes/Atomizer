@@ -1,0 +1,28 @@
+# Atomizer — dependencies (Apple Silicon, Python 3.10+)
+# Install inside a venv:  pip install -r requirements.txt
+# NOTE: mlx-audio-separator is MLX-native (no PyTorch/ONNX needed at inference).
+
+# --- Audio source separation (MLX-native, Apple Silicon) ---
+mlx-audio-separator[convert]
+
+# --- Audio download ---
+yt-dlp
+
+# --- BPM / key analysis (local fallback) ---
+librosa
+numpy
+scipy
+soundfile
+
+# --- HTTP for online BPM/key lookup ---
+requests
+
+# --- Config / secrets ---
+python-dotenv
+
+# --- UI ---
+PySide6
+
+# --- Optional, NOT installed by default (often problematic on Apple Silicon) ---
+# essentia            # better key/BPM if it builds on your machine; analysis.py
+#                     # falls back to librosa automatically when essentia is absent.

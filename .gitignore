@@ -1,0 +1,43 @@
+# Atomizer
+
+# venv
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets / local config
+.env
+atomizer_settings.json
+
+# Model checkpoints (downloaded on first run; can be GBs)
+models/
+*.ckpt
+*.onnx
+*.pth
+*.safetensors
+
+# Working / output audio
+output/
+downloads/
+tmp/
+*.aif
+*.aiff
+*.wav
+*.mp3
+*.opus
+*.m4a
+*.flac
+
+# OS
+.DS_Store
+
+# Logs
+*.log
