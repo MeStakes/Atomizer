@@ -103,6 +103,19 @@ python -m atomizer.bootstrap          # all recommended models
 python -m atomizer.bootstrap --list   # show what would be downloaded
 ```
 
+### Create an app icon (optional)
+
+Prefer launching from Launchpad / Spotlight instead of the Terminal? Build a
+macOS app launcher:
+
+```bash
+./scripts/make_app.sh
+```
+
+This installs **Atomizer.app** (neon icon) into `/Applications` (or
+`~/Applications`). It's a thin launcher around this repo's `.venv` — keep the
+project folder in place, and re-run the script if you move it.
+
 ---
 
 ## 🎛️ Using Atomizer
