@@ -47,9 +47,10 @@ un file locale, rileva **BPM** e **tonalità**, ed esporta file pronti per il pl
   l'inferenza.
 - 🎧 **Anteprima ed export** — ascolta gli stem, poi esporta **AIFF/WAV 24-bit/44.1
   kHz** in una cartella ordinata per canzone con `info.json`.
-- 🎯 **Metadati pronti per MainStage** — gli export AIFF includono un chunk Apple
-  Loops `basc` (tempo + tonalità) così MainStage può auto-rilevarli; il WAV ha un
-  chunk `acid` col tempo; `info.json` è sempre presente.
+- 🎯 **Tempo e tonalità in evidenza** — BPM e tonalità sono nel nome della
+  cartella/file e in `info.json`, così li leggi a colpo d'occhio e digiti il tempo
+  nel Playback di MainStage. AIFF/WAV includono anche chunk di tempo best-effort
+  (`basc`/`acid`) per i DAW che li leggono (Playback di MainStage non li auto-rileva).
 - 🌃 **UI neon cyber** — interfaccia PySide6 scura e futuristica.
 - 🔒 **Privato** — la separazione è interamente locale/offline; solo il lookup
   opzionale BPM/tonalità usa la rete.
