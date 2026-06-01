@@ -1,4 +1,4 @@
-"""Atomizer main window: wires the controls, worker, and result display."""
+"""Atomizer main window: wires the controls, job queue, and result display."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -24,11 +25,11 @@ from PySide6.QtWidgets import (
 
 from .. import __tagline__, __version__
 from ..config import Secrets, Settings
-from ..models import ExportFormat, JobRequest, ModelInfo
+from ..models import ExportFormat, JobRequest, ModelInfo, ProgressEvent
 from .. import separator as separator_mod
 from . import theme
+from .queue import CANCELED, DONE, FAILED, QUEUED, RUNNING, QueueController, QueuedJob
 from .widgets import DropZone, LogoLabel, MetricChip, NeonProgressBar
-from .worker import JobWorker
 
 # Optional audio preview (QtMultimedia ships with PySide6_Addons).
 try:
@@ -37,6 +38,21 @@ try:
     _HAS_AUDIO = True
 except Exception:  # pragma: no cover
     _HAS_AUDIO = False
+
+_STATUS_COLOR = {
+    QUEUED: theme.TEXT_MUTED,
+    RUNNING: theme.CYAN,
+    DONE: theme.AQUA,
+    FAILED: theme.DANGER,
+    CANCELED: theme.TEXT_MUTED,
+}
+_STATUS_LABEL = {
+    QUEUED: "queued",
+    RUNNING: "running",
+    DONE: "done",
+    FAILED: "failed",
+    CANCELED: "canceled",
+}
 
 
 def _card(title: Optional[str] = None) -> tuple[QFrame, QVBoxLayout]:
@@ -53,24 +69,44 @@ def _card(title: Optional[str] = None) -> tuple[QFrame, QVBoxLayout]:
     return frame, lay
 
 
+def _short_source(source: str) -> str:
+    """Compact label for a URL or file path."""
+    if source.startswith(("http://", "https://")):
+        return source if len(source) <= 46 else "…" + source[-45:]
+    name = Path(source).name
+    return name or source
+
+
 class MainWindow(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("Root")
         self.setWindowTitle("Atomizer")
-        self.resize(900, 980)
+        self.resize(900, 1040)
 
         self.settings = Settings.load()
         self.secrets = Secrets.from_env()
-        self.worker: Optional[JobWorker] = None
         self._stem_boxes: dict[str, QCheckBox] = {}
         self._all_models = False
         self._player = None
         self._audio_out = None
         self._playing_path: Optional[str] = None
+        self._last_folder: Optional[Path] = None
+        self._last_eta: str = ""
 
         self._build()
         self._populate_models()
+
+        self.controller = QueueController(self.settings, self.secrets, self)
+        self.controller.changed.connect(self._refresh_queue)
+        self.controller.activeChanged.connect(self._on_active_changed)
+        self.controller.progress.connect(self._on_progress)
+        self.controller.trackReady.connect(self._on_track)
+        self.controller.analysisReady.connect(self._on_analysis)
+        self.controller.jobSucceeded.connect(self._on_job_succeeded)
+        self.controller.jobFailed.connect(self._on_job_failed)
+        self.controller.jobCanceled.connect(self._on_job_canceled)
+        self._refresh_queue()
 
     # ----------------------------------------------------------------- build
     def _build(self) -> None:
@@ -95,6 +131,7 @@ class MainWindow(QWidget):
         root.addWidget(self._build_stems_card())
         root.addWidget(self._build_output_card())
         root.addWidget(self._build_run_button())
+        root.addWidget(self._build_queue_card())
         root.addWidget(self._build_progress_card())
         root.addWidget(self._build_analysis_card())
         root.addWidget(self._build_results_card())
@@ -171,16 +208,14 @@ class MainWindow(QWidget):
         row1.addWidget(self.depth_combo)
         row1.addSpacing(16)
         row1.addWidget(QLabel("Sample rate"))
-        self.sr_label = QLabel("44.1 kHz")
-        self.sr_label.setObjectName("Muted")
-        row1.addWidget(self.sr_label)
+        sr = QLabel("44.1 kHz")
+        sr.setObjectName("Muted")
+        row1.addWidget(sr)
         row1.addStretch(1)
         lay.addLayout(row1)
 
         row2 = QHBoxLayout()
         row2.setSpacing(10)
-        from PySide6.QtWidgets import QLineEdit
-
         self.out_edit = QLineEdit(self.settings.output_dir)
         self.out_edit.setPlaceholderText("~/Music/Atomizer")
         browse = QPushButton("Choose…")
@@ -199,12 +234,32 @@ class MainWindow(QWidget):
         self.run_btn = QPushButton("S E P A R A T E")
         self.run_btn.setObjectName("Primary")
         self.run_btn.setMinimumHeight(52)
-        self.run_btn.clicked.connect(self._start)
+        self.run_btn.clicked.connect(self._enqueue)
         lay.addWidget(self.run_btn)
         return wrap
 
+    def _build_queue_card(self) -> QFrame:
+        card, lay = _card("Queue")
+        head = QHBoxLayout()
+        self.queue_hint = QLabel("No jobs yet. Press SEPARATE to add one.")
+        self.queue_hint.setObjectName("Hint")
+        head.addWidget(self.queue_hint, 1)
+        clear = QPushButton("Clear finished")
+        clear.setObjectName("Ghost")
+        clear.clicked.connect(lambda: self.controller.clear_finished())
+        head.addWidget(clear)
+        lay.addLayout(head)
+
+        self.queue_layout = QVBoxLayout()
+        self.queue_layout.setSpacing(6)
+        lay.addLayout(self.queue_layout)
+        return card
+
     def _build_progress_card(self) -> QFrame:
         card, lay = _card("Progress")
+        self.status_line = QLabel("Idle.")
+        self.status_line.setObjectName("Muted")
+        lay.addWidget(self.status_line)
         self.progress = NeonProgressBar()
         lay.addWidget(self.progress)
         self.log = QPlainTextEdit()
@@ -239,7 +294,6 @@ class MainWindow(QWidget):
         self.open_btn.setEnabled(False)
         self.open_btn.clicked.connect(self._open_folder)
         lay.addWidget(self.open_btn)
-        self._last_folder: Optional[Path] = None
         return card
 
     # ------------------------------------------------------------ model UI
@@ -250,7 +304,6 @@ class MainWindow(QWidget):
         for m in models:
             prefix = "★ " if m.recommended else "   "
             self.model_combo.addItem(prefix + m.display_name, m)
-        # Select the default model.
         for i in range(self.model_combo.count()):
             if self.model_combo.itemData(i).filename == self.settings.default_model:
                 self.model_combo.setCurrentIndex(i)
@@ -288,7 +341,6 @@ class MainWindow(QWidget):
         self._rebuild_stems(m.stems or ["Vocals", "Instrumental"])
 
     def _rebuild_stems(self, stems: list[str]) -> None:
-        # Clear existing checkboxes.
         while self.stems_container.count():
             item = self.stems_container.takeAt(0)
             w = item.widget()
@@ -319,7 +371,8 @@ class MainWindow(QWidget):
             self.settings.default_model = m.filename
         self.settings.save()
 
-    def _start(self) -> None:
+    def _enqueue(self) -> None:
+        """Snapshot the form into a job and add it to the queue (auto-starts)."""
         source = self.drop.current_source()
         if not source:
             QMessageBox.warning(self, "Atomizer", "Paste a URL or choose an audio file first.")
@@ -331,6 +384,7 @@ class MainWindow(QWidget):
 
         self._persist_settings()
         model = self._current_model()
+        use_ensemble = self.ensemble_cb.isChecked()
         req = JobRequest(
             source=source,
             model_filename=model.filename if model else self.settings.default_model,
@@ -339,39 +393,89 @@ class MainWindow(QWidget):
             bit_depth=self.settings.bit_depth,
             sample_rate=self.settings.sample_rate,
             output_dir=self.settings.output_path(),
-            use_ensemble=self.ensemble_cb.isChecked(),
+            use_ensemble=use_ensemble,
         )
+        model_label = "Ensemble" if use_ensemble else (model.display_name if model else self.settings.default_model)
+        label = f"{_short_source(source)}  ·  {model_label}  ·  {', '.join(stems)}"
+        self.controller.add(req, label)
 
-        self._set_running(True)
-        self.log.clear()
-        self._clear_results()
-        self.bpm_chip.set_value("—")
-        self.key_chip.set_value("—")
-        self.progress.set_busy(True)
+    # ------------------------------------------------------------- queue UI
+    def _refresh_queue(self) -> None:
+        while self.queue_layout.count():
+            item = self.queue_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
 
-        self.worker = JobWorker(req, self.settings, self.secrets, self)
-        self.worker.progress.connect(self._on_progress)
-        self.worker.trackReady.connect(self._on_track)
-        self.worker.analysisReady.connect(self._on_analysis)
-        self.worker.succeeded.connect(self._on_success)
-        self.worker.failed.connect(self._on_failed)
-        self.worker.finished.connect(lambda: self._set_running(False))
-        self.worker.start()
+        jobs = self.controller.jobs()
+        self.queue_hint.setVisible(not jobs)
+        for job in jobs:
+            self.queue_layout.addWidget(self._queue_row(job))
 
-    def _set_running(self, running: bool) -> None:
-        self.run_btn.setEnabled(not running)
-        self.run_btn.setText("WORKING…" if running else "S E P A R A T E")
-        if not running:
-            self.progress.stop_pulse()
+    def _queue_row(self, job: QueuedJob) -> QWidget:
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(8)
+
+        dot = QLabel("●")
+        dot.setStyleSheet(f"color: {_STATUS_COLOR.get(job.status, theme.TEXT_MUTED)}; font-size: 13px;")
+        h.addWidget(dot)
+
+        text = QLabel(job.label)
+        text.setToolTip(job.detail or job.label)
+        h.addWidget(text, 1)
+
+        status = QLabel(_STATUS_LABEL.get(job.status, job.status))
+        status.setObjectName("Muted")
+        status.setStyleSheet(f"color: {_STATUS_COLOR.get(job.status, theme.TEXT_MUTED)};")
+        h.addWidget(status)
+
+        if job.status == QUEUED:
+            btn = QPushButton("✕")
+            btn.setObjectName("Ghost")
+            btn.setToolTip("Remove from queue")
+            btn.clicked.connect(lambda _=False, jid=job.id: self.controller.remove(jid))
+            h.addWidget(btn)
+        elif job.status == RUNNING:
+            btn = QPushButton("■ Cancel")
+            btn.setObjectName("Ghost")
+            btn.clicked.connect(lambda _=False, jid=job.id: self.controller.cancel(jid))
+            h.addWidget(btn)
+        return row
 
     # ------------------------------------------------------------- signals
-    def _on_progress(self, message: str, frac: float) -> None:
-        self.log.appendPlainText(message)
-        if frac < 0:
-            self.progress.set_busy(True)
-        else:
+    def _on_active_changed(self, job: Optional[QueuedJob]) -> None:
+        if job is None:
             self.progress.stop_pulse()
-            self.progress.set_progress(frac)
+            self.status_line.setText("Idle.")
+            self.progress.set_busy(False)
+            self.progress.set_progress(0.0)
+        else:
+            self._last_eta = ""
+            self.log.appendPlainText(f"▶ Starting: {job.label}")
+            self.progress.start_pulse()
+            self.progress.set_busy(True)
+
+    def _on_progress(self, ev: ProgressEvent) -> None:
+        if ev.message:
+            self.log.appendPlainText(ev.message)
+        if ev.eta_sec is not None and ev.eta_sec > 0:
+            self._last_eta = ev.eta_text
+
+        pct = ev.overall_percent
+        if pct is None:
+            self.progress.set_busy(True)
+            self.status_line.setText(f"{(ev.phase.title() or 'Working')}…")
+            return
+
+        self.progress.set_busy(False)
+        self.progress.set_progress(ev.overall_fraction)
+        phase = ev.phase.title() if ev.phase else "Working"
+        seg = [phase, f"{pct}%"]
+        if ev.phase in ("separation", "download") and self._last_eta:
+            seg.append(f"ETA {self._last_eta}")
+        self.status_line.setText("  ·  ".join(seg))
 
     def _on_track(self, track) -> None:
         if track.display_name:
@@ -381,19 +485,19 @@ class MainWindow(QWidget):
         self.bpm_chip.set_value(analysis.bpm_text, analysis.bpm_source.value, analysis.bpm_confidence)
         self.key_chip.set_value(analysis.key_text, analysis.key_source.value, analysis.key_confidence)
 
-    def _on_success(self, result) -> None:
-        self.progress.stop_pulse()
-        self.progress.set_progress(1.0)
+    def _on_job_succeeded(self, job: QueuedJob, result) -> None:
+        self.status_line.setText(f"✓ Done: {job.label}")
         self._last_folder = result.export.folder
         self.open_btn.setEnabled(True)
         self._show_results(result)
 
-    def _on_failed(self, message: str) -> None:
-        self.progress.stop_pulse()
-        self.progress.set_busy(False)
-        self.progress.set_progress(0.0)
-        self.log.appendPlainText(f"✗ ERROR: {message}")
-        QMessageBox.critical(self, "Atomizer — error", message)
+    def _on_job_failed(self, job: QueuedJob, message: str) -> None:
+        self.log.appendPlainText(f"✗ ERROR [{job.label}]: {message}")
+        self.status_line.setText(f"✗ Failed: {job.label}")
+
+    def _on_job_canceled(self, job: QueuedJob) -> None:
+        self.log.appendPlainText(f"■ Canceled: {job.label}")
+        self.status_line.setText(f"■ Canceled: {job.label}")
 
     # ------------------------------------------------------------- results
     def _clear_results(self) -> None:
@@ -405,12 +509,14 @@ class MainWindow(QWidget):
 
     def _show_results(self, result) -> None:
         self._clear_results()
+        header = QLabel(result.export.folder.name)
+        header.setObjectName("Hint")
+        self.results_layout.addWidget(header)
         for stem in result.export.files:
             row = QWidget()
             h = QHBoxLayout(row)
             h.setContentsMargins(0, 0, 0, 0)
-            name = QLabel(stem.path.name)
-            h.addWidget(name, 1)
+            h.addWidget(QLabel(stem.path.name), 1)
             if _HAS_AUDIO:
                 play = QPushButton("▶ Preview")
                 play.setObjectName("Play")

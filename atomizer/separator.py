@@ -12,19 +12,95 @@ cheap to import.
 
 from __future__ import annotations
 
+import importlib
 import logging
 import re
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Optional
 
 from .config import DEFAULT_MODEL, Settings
-from .models import ModelInfo, SeparationResult, StemResult
+from .models import JobCancelled, ModelInfo, SeparationResult, StemResult
 
-ProgressCallback = Callable[[str, Optional[float]], None]
+# Callback signature: (message, fraction|None, eta_seconds|None). Extra args are
+# optional so simple callers can still call progress(msg, frac).
+ProgressCallback = Callable[..., None]
+
+# Architecture modules that drive their inference loop with tqdm; we patch their
+# `tqdm` name to surface real per-chunk progress + ETA and to support cancel.
+_TQDM_MODULES = (
+    "mlx_audio_separator.separator.architectures.mdxc_separator",
+    "mlx_audio_separator.separator.architectures.mdx_separator",
+    "mlx_audio_separator.separator.architectures.vr_separator",
+)
+
+# Only these tqdm bars are the actual inference loops (others = setup/loading).
+_INFERENCE_DESC = ("inference",)
 
 
-def _noop(_msg: str, _frac: Optional[float]) -> None:
+def _noop(*_args, **_kwargs) -> None:
     pass
+
+
+def _make_patched_tqdm(progress: ProgressCallback, should_cancel: Optional[Callable[[], bool]]):
+    """Return a drop-in replacement for ``tqdm`` that reports progress + ETA.
+
+    The library uses ``for x in tqdm(iterable, desc=..., total=...)``; this
+    wrapper iterates the same way, emitting ``progress(msg, fraction, eta)`` on
+    each step (only for inference bars) and raising :class:`JobCancelled` when
+    the cancel flag is set.
+    """
+
+    def patched(iterable=None, total=None, desc=None, **_kwargs):
+        if total is None:
+            try:
+                total = len(iterable)
+            except TypeError:
+                total = None
+        is_inference = bool(desc) and any(k in desc.lower() for k in _INFERENCE_DESC)
+        start = time.monotonic()
+
+        def gen():
+            done = 0
+            for item in iterable:
+                if should_cancel and should_cancel():
+                    raise JobCancelled()
+                yield item
+                done += 1
+                if is_inference and total:
+                    frac = done / total
+                    elapsed = time.monotonic() - start
+                    eta = elapsed * (total - done) / done if done else None
+                    progress(f"Separating — {done}/{total} chunks", frac, eta)
+
+        return gen()
+
+    return patched
+
+
+@contextmanager
+def _patched_inference(progress: ProgressCallback, should_cancel: Optional[Callable[[], bool]]):
+    """Temporarily patch tqdm in the architecture modules for live progress."""
+    patched = _make_patched_tqdm(progress, should_cancel)
+    saved: dict = {}
+    for name in _TQDM_MODULES:
+        try:
+            mod = importlib.import_module(name)
+            saved[name] = getattr(mod, "tqdm", None)
+            mod.tqdm = patched
+        except Exception:
+            pass
+    try:
+        yield
+    finally:
+        for name, orig in saved.items():
+            try:
+                mod = importlib.import_module(name)
+                if orig is not None:
+                    mod.tqdm = orig
+            except Exception:
+                pass
 
 
 # Curated, quality-first recommendations. Order = display order in the UI.
@@ -222,8 +298,13 @@ def separate(
     output_dir,
     progress: ProgressCallback = _noop,
     model_info: Optional[ModelInfo] = None,
+    should_cancel: Optional[Callable[[], bool]] = None,
 ) -> SeparationResult:
-    """Separate ``audio_path`` with one model into all of its stems."""
+    """Separate ``audio_path`` with one model into all of its stems.
+
+    ``should_cancel`` is polled each inference chunk; when it returns True a
+    :class:`JobCancelled` is raised.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -234,12 +315,15 @@ def separate(
         )
 
     ensure_model(settings, model_filename, progress)
+    if should_cancel and should_cancel():
+        raise JobCancelled()
 
     handler = _ProgressLogHandler(progress)
-    progress(f"Separating with {model_info.display_name}… (this can take several minutes)", None)
+    progress(f"Separating with {model_info.display_name}…", None)
     sep = _make_separator(settings, output_dir, handler)
     sep.load_model(model_filename=model_filename)
-    output_files = sep.separate(str(audio_path))
+    with _patched_inference(progress, should_cancel):
+        output_files = sep.separate(str(audio_path))
 
     stems = _map_outputs_to_stems(list(output_files), model_info)
     progress(f"Separation complete: {len(stems)} stem(s).", 1.0)
@@ -251,22 +335,33 @@ def separate_ensemble(
     settings: Settings,
     output_dir,
     progress: ProgressCallback = _noop,
+    should_cancel: Optional[Callable[[], bool]] = None,
 ) -> SeparationResult:
     """Optional manual ensemble across vocal models with identical stems.
 
     Runs each compatible model, then averages aligned stem waveforms for maximum
     quality. Falls back gracefully to the single best model when fewer than two
-    compatible models succeed.
+    compatible models succeed. Per-member progress is scaled so the separation
+    phase reads 0..100% across all members.
     """
     import numpy as np
     import soundfile as sf
 
     output_dir = Path(output_dir)
     runs: list[SeparationResult] = []
-    for fname in _ENSEMBLE_VOCAL_MODELS:
+    n = len(_ENSEMBLE_VOCAL_MODELS)
+    for i, fname in enumerate(_ENSEMBLE_VOCAL_MODELS):
+        def scaled(msg, frac=None, eta=None, _i=i):
+            # Map a member's 0..1 into the global (i+frac)/n window. ETA from a
+            # single member is scaled up to roughly cover the remaining members.
+            gfrac = None if frac is None else (_i + frac) / n
+            geta = None if eta is None else eta * (n - _i)
+            progress(f"[{_i + 1}/{n}] {msg}", gfrac, geta)
         try:
             sub = output_dir / f"_ens_{Path(fname).stem[:24]}"
-            runs.append(separate(audio_path, fname, settings, sub, progress))
+            runs.append(separate(audio_path, fname, settings, sub, scaled, should_cancel=should_cancel))
+        except JobCancelled:
+            raise
         except Exception as exc:
             progress(f"Ensemble member '{fname}' failed: {exc}", None)
 

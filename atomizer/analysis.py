@@ -15,10 +15,10 @@ import numpy as np
 from .config import Secrets, Settings
 from .models import AnalysisResult, AnalysisSource, Track
 
-ProgressCallback = Callable[[str, Optional[float]], None]
+ProgressCallback = Callable[..., None]
 
 
-def _noop(_msg: str, _frac: Optional[float]) -> None:
+def _noop(*_args, **_kwargs) -> None:
     pass
 
 

@@ -14,13 +14,13 @@ from typing import Callable, Optional
 
 from .models import Track
 
-# (message, fraction 0..1 or None for indeterminate)
-ProgressCallback = Callable[[str, Optional[float]], None]
+# (message, fraction 0..1 or None, eta_seconds or None). Extra args optional.
+ProgressCallback = Callable[..., None]
 
 _AUDIO_EXTS = {".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a", ".opus", ".ogg", ".wma"}
 
 
-def _noop(_msg: str, _frac: Optional[float]) -> None:
+def _noop(*_args, **_kwargs) -> None:
     pass
 
 
@@ -88,7 +88,7 @@ def download(
             done = d.get("downloaded_bytes", 0)
             frac = (done / total) if total else None
             mb = done / 1_048_576
-            progress(f"Downloading audio… {mb:.1f} MB", frac)
+            progress(f"Downloading audio… {mb:.1f} MB", frac, d.get("eta"))
         elif status == "finished":
             progress("Download complete, extracting audio…", None)
 

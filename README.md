@@ -111,8 +111,14 @@ confidence estimate.
 3. Check the **stems** you want exported (only checked ones are written).
 4. Choose **format** (AIFF default / WAV), **bit depth** (24/16), and the
    **output folder** (default `~/Music/Atomizer`).
-5. Hit **SEPARATE**. Watch the progress log; BPM/key fill in automatically.
-6. **Preview** each stem and **Open output folder** when done.
+5. Hit **SEPARATE**. The job is added to the **Queue** and starts immediately if
+   nothing else is running.
+6. **Queue more while one runs** — change the form and press SEPARATE again;
+   jobs run one at a time. Remove queued jobs or **Cancel** the running one
+   (cancel takes effect at the next inference chunk).
+7. The **progress bar shows a real percentage and ETA** during separation; BPM/key
+   fill in automatically.
+8. **Preview** each stem and **Open output folder** when done.
 
 ### Output layout
 

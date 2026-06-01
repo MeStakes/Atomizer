@@ -171,16 +171,16 @@ class NeonProgressBar(QProgressBar):
         self._glow.setBlurRadius(8)
 
     def set_busy(self, busy: bool) -> None:
-        """Indeterminate marching mode with pulsing glow."""
-        if busy:
+        """Indeterminate marching mode (glow pulse is managed separately)."""
+        if busy and (self.minimum(), self.maximum()) != (0, 0):
             self.setRange(0, 0)
-            self.start_pulse()
-        else:
+        elif not busy and self.maximum() == 0:
             self.setRange(0, 100)
 
     def set_progress(self, frac: float) -> None:
         """Determinate progress in [0, 1]."""
-        self.setRange(0, 100)
+        if self.maximum() == 0:
+            self.setRange(0, 100)
         self.setValue(int(max(0.0, min(1.0, frac)) * 100))
 
 

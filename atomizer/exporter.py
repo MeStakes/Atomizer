@@ -34,7 +34,7 @@ from .models import (
 ProgressCallback = Callable[[str, Optional[float]], None]
 
 
-def _noop(_msg: str, _frac: Optional[float]) -> None:
+def _noop(*_args, **_kwargs) -> None:
     pass
 
 

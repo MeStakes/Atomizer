@@ -152,6 +152,49 @@ class JobRequest:
     use_ensemble: bool = False
 
 
+class JobCancelled(Exception):
+    """Raised inside the pipeline when a running job is cancelled by the user."""
+
+
+def format_eta(seconds: Optional[float]) -> str:
+    """Human ETA: 'mm:ss' (or 'h:mm:ss' for long jobs), '—' if unknown."""
+    if seconds is None or seconds < 0:
+        return "—"
+    seconds = int(round(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
+@dataclass(slots=True)
+class ProgressEvent:
+    """Rich progress update emitted by the pipeline to the UI.
+
+    ``phase`` is one of download/separation/analysis/export. ``phase_fraction``
+    is local to the phase (0..1, or None when indeterminate). ``overall_fraction``
+    is the weighted whole-job progress. ``eta_sec`` is the best estimate of the
+    remaining time for the current phase (or None).
+    """
+
+    message: str
+    phase: str = ""
+    phase_fraction: Optional[float] = None
+    overall_fraction: Optional[float] = None
+    eta_sec: Optional[float] = None
+
+    @property
+    def overall_percent(self) -> Optional[int]:
+        if self.overall_fraction is None:
+            return None
+        return int(round(max(0.0, min(1.0, self.overall_fraction)) * 100))
+
+    @property
+    def eta_text(self) -> str:
+        return format_eta(self.eta_sec)
+
+
 def to_info_dict(
     track: Track,
     analysis: AnalysisResult,
